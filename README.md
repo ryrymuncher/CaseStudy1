@@ -70,3 +70,11 @@ merge_df$Style <- lapply(merge_df$Style,function(x) if(identical(x,"")) NA else 
 
 sapply(merge_df, function(x) sum(is.na(x)))
 ```
+
+## 4.Compute the median alcohol content and international bitterness unit for each state. Plot a bar chart to compare.
+```{r}
+#Puri: I do not remove empty rows from the datset because there are 1,005 missing value for IBU which I think it is huge amount.  Any thought?
+
+merge_df %>%
+  ggplot(aes(x=State, y=ABV)) + geom_boxplot() + cord_
+```
