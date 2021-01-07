@@ -1,1 +1,204 @@
+---
+title: "Case Study 1 by Group 3"
+author: "Group 3 - Chris Roche, Puri Rudick, and Ryan Kinney"
+output: html_document
+editor_options: 
+  chunk_output_type: console
+---
 
+```{r setup, include=FALSE}
+library(dplyr)
+library(ggplot2)
+library(stringr)
+library(usmap)
+library(ggnewscale)
+library(caret)
+library(class)
+```
+
+### Read in the data from csv files
+```{r}
+beerDataOrig = read.csv("Beers.csv",header = TRUE)
+breweryDataOrig = read.csv("Breweries.csv",header = TRUE)
+```
+
+### 1. How many breweries are present in each state?
+
+The number of breweries in each state as shown below.  The darker color represents the higher number of breweries with number labeled.
+```{r}
+#table(breweryDataOrig$State)
+
+breweryDataOrig = as.data.frame(breweryDataOrig)
+Breweries.in.each.state = breweryDataOrig %>% count(State)
+Breweries.in.each.state$State <- 
+  str_replace_all(string=Breweries.in.each.state$State, 
+                  pattern=" ", repl="")
+names(Breweries.in.each.state)[1] <- "state"
+
+centroid_labels <- 
+  utils::read.csv(system.file("extdata",
+                              paste0("us_", "states", "_centroids.csv"), 
+                              package = "usmap"), stringsAsFactors = FALSE)
+
+labels <- 
+  merge(x = centroid_labels, 
+        y = Breweries.in.each.state, 
+        by.x = "abbr", 
+        by.y = "state", 
+        all.x=TRUE)
+
+names(labels)[6] <- "breweries_count"
+
+plot_usmap(data = Breweries.in.each.state, values = "n", labels=FALSE) + 
+  scale_fill_continuous(low = "white", 
+                        high = "orange", 
+                        name = "# of Breweries", 
+                        label = scales::comma) + 
+  theme(legend.position = "right") + 
+  theme(panel.background = element_rect(colour = "black")) + 
+  labs(title = "Number of Breweries by State") + 
+  geom_text(data = labels, 
+            ggplot2::aes(x = x, y = y, 
+            label = scales::number(breweries_count,accuracy = 1)),
+            color = "black")
+```
+
+### 2. Merge beer data with the breweries data.
+### Print the first 6 observations and the last six observations to check the merged file.
+```{r}
+mergedBeerData <- merge(x = beerDataOrig, y = breweryDataOrig,
+                  by.x = "Brewery_id", by.y = "Brew_ID", all = TRUE)
+
+names(mergedBeerData)[names(mergedBeerData)=="Name.x"] <- "Beer_name"
+names(mergedBeerData)[names(mergedBeerData)=="Name.y"] <- "Brewery_name"
+
+head(mergedBeerData)
+tail(mergedBeerData)
+```
+
+### 3. Address the missing values in each column.
+
+Missing/empty values for each column as shown below.
+```{r}
+mergedBeerData$Style <- 
+  lapply(mergedBeerData$Style,
+         function(x) if(identical(x,"")) NA else x)
+
+
+sapply(mergedBeerData, function(x) sum(is.na(x)))
+```
+
+
+The total number of rows with missing/empty values as shows below.
+
+```{r}
+row.has.na <- apply(mergedBeerData, 1, function(x){any(is.na(x))})
+sum(row.has.na)
+
+# Filtered Merged Data
+mergedBeerData.filtered <- mergedBeerData[!row.has.na,]
+```
+
+### 4.Compute the median alcohol content and international bitterness unit for each state. Plot a bar chart to compare.
+```{r message = FALSE, warning = FALSE}
+medianData <- aggregate(mergedBeerData.filtered[, 4:5], list(mergedBeerData.filtered$State), median)
+names(medianData)[names(medianData)=="Group.1"] <- "State"
+
+medianData %>%
+  ggplot(aes(x = reorder(State,ABV))) +
+  geom_col(aes(y = ABV*1000, fill = ABV)) +
+  scale_fill_gradient2(low = "white", 
+                       high = "orange",
+                       name = "ABV") +
+  geom_text(aes(y = ABV*1000-8, label = round(ABV, 3)), color = "chocolate4", size = 3) +
+  new_scale_fill() +
+  geom_col(aes(y = -IBU, fill = IBU)) +
+  scale_fill_gradient2(low = "grey25", 
+                       high = "black",
+                       name = "IBU") +
+  geom_text(aes(y = -6, label = round(IBU, 3)), color = "white", size = 3) +
+  geom_text(aes(y = ABV*1000+10, label = State)) + 
+  scale_y_continuous(limits = c(-70, 80)) +
+  coord_polar() +
+  theme_void() +
+  labs(title = "Median of Alcohol By Volume (ABV) and\nInternational Bitterness Units (IBU) for Each State",
+       subtitle = "   * The bar chart ordered clockwise by ABV value\n   ** The darker color represents higher value of ABV and IBU")
+
+```
+
+### 5. Which state has the maximum alcoholic (ABV) beer? Which state has the most bitter (IBU) beer?
+If we consider the median of ABV and IBU for each state,
+```{r}
+# arrange by ABV in descending order, print state for first observation
+orderedABVmedian <- medianData %>% arrange(desc(ABV))
+orderedABVmedian[1,]$State
+
+orderedIBUmedian <- medianData %>% arrange(desc(IBU))
+orderedIBUmedian[1,]$State
+```
+If we consider the individual beer from each state ABV and IBU,
+```{r}
+# arrange by ABV in descending order, print state for first observation
+orderedABV <- mergedBeerData.filtered %>% arrange(desc(ABV))
+orderedABV[1,]$State
+
+orderedIBU <- mergedBeerData.filtered %>% arrange(desc(IBU))
+orderedIBU[1,]$State
+```
+
+### 6. Comment on the summary statistics and distribution of the ABV variable.
+```{r}
+mergedBeerData.filtered %>%
+    summarize(mean=mean(ABV), 
+              sd=sd(ABV), 
+              median=median(ABV), 
+              range=max(ABV)-min(ABV), 
+              min(ABV), 
+              max(ABV), 
+              IQR=IQR(ABV))
+```
+
+### 7. Is there an apparent relationship between the bitterness of the beer and its alcoholic content? Draw a scatter plot.  Make your best judgment of a relationship and EXPLAIN your answer.
+```{r}
+mergedBeerData.filtered %>% ggplot(aes(x = ABV,y = IBU)) + geom_jitter() + ggtitle("ABV v. IBU") + geom_smooth(method="lm", se=F)
+```
+
+### 8. Budweiser would also like to investigate the difference with respect to IBU and ABV between IPAs (India Pale Ales) and other types of Ale (any beer with “Ale” in its name other than IPA).  You decide to use KNN classification to investigate this relationship.  Provide statistical evidence one way or the other. You can of course assume your audience is comfortable with percentages … KNN is very easy to understand conceptually.
+
+```{r message = FALSE, warning = FALSE}
+# Create a new column called 'Ale' that can be 'IPA', 'Ale', or 'Other'
+
+### TODO Working through the right regex to make sure IPA and India Pale Ale aren't 
+###    counted as both IPAs and Ales
+
+### TODO For this problem, we can filter out the 'Other' from the column since we only
+###    need to compare IPA and non-IPA ales
+
+mergedBeerData.filtered$AleStyle <- 
+  ifelse(grepl("IPA", mergedBeerData.filtered$Style, fixed = TRUE),"IPA",
+         ifelse(grepl("Ale", mergedBeerData.filtered$Style, fixed = TRUE),"Ale","Other"))
+
+mergedBeerData.filtered$AleByName <- 
+  ifelse(grepl("India Pale Ale", mergedBeerData.filtered$Beer_name, fixed = TRUE),"IPA",
+         ifelse(grepl("IPA", mergedBeerData.filtered$Beer_name, fixed = TRUE),"IPA",
+                ifelse(grepl("Ale", mergedBeerData.filtered$Beer_name, fixed = TRUE),"Ale","Other")))
+
+aleBeerFiltered <- mergedBeerData.filtered %>% filter(AleByName == "IPA" | AleByName == "Ale")
+
+set.seed(4)
+splitPerc = .7
+
+trainIndices = sample(1:dim(aleBeerFiltered)[1], round(splitPerc * dim(aleBeerFiltered)[1]))
+beerTrain = aleBeerFiltered[trainIndices,]
+beerTest = aleBeerFiltered[-trainIndices,]
+
+# run knn
+classifications = knn(beerTrain[,4:5], beerTest[,4:5], beerTrain$AleByName, k = 5, prob = TRUE)
+summary(classifications)
+
+# Confusion Matrix
+table(beerTest$AleByName, classifications)
+CM = confusionMatrix(table(beerTest$AleByName, classifications))
+CM
+
+```
