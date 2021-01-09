@@ -26,7 +26,7 @@ library(ggpubr)
 beerDataOrig = read.csv("Beers.csv",header = TRUE)
 breweryDataOrig = read.csv("Breweries.csv",header = TRUE)
 ```
-Did I push??
+
 ### 1. How many breweries are present in each state?
 
 The number of breweries in each state as shown below.
