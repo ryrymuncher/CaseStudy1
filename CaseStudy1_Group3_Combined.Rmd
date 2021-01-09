@@ -29,15 +29,18 @@ breweryDataOrig = read.csv("Breweries.csv",header = TRUE)
 
 ### 1. How many breweries are present in each state?
 
-The number of breweries in each state as shown below.  The darker color represents the higher number of breweries with number labeled.
-```{r}
+The number of breweries in each state as shown below.
+The darker color represents the higher number of breweries with number labeled.
 
+The plot shows that Colorado has the most breweries in the country, which is 47 breweries.
+```{r}
 breweryDataOrig = as.data.frame(breweryDataOrig)
-Breweries.in.each.state = breweryDataOrig %>% count(State)
-Breweries.in.each.state$State <- 
-  str_replace_all(string=Breweries.in.each.state$State, 
-                  pattern=" ", repl="")
+
+Breweries.in.each.state = count(breweryDataOrig$State)
 names(Breweries.in.each.state)[1] <- "state"
+Breweries.in.each.state$state <-
+  str_replace_all(string=Breweries.in.each.state$state, 
+                  pattern=" ", repl="")
 
 centroid_labels <- 
   utils::read.csv(system.file("extdata",
@@ -53,7 +56,7 @@ labels <-
 
 names(labels)[6] <- "breweries_count"
 
-plot_usmap(data = Breweries.in.each.state, values = "n", labels=FALSE) + 
+plot_usmap(data = Breweries.in.each.state, values = "freq", labels=FALSE) + 
   scale_fill_continuous(low = "white", 
                         high = "orange", 
                         name = "# of Breweries", 
@@ -67,8 +70,11 @@ plot_usmap(data = Breweries.in.each.state, values = "n", labels=FALSE) +
             color = "black")
 ```
 
-### 2. Merge beer data with the breweries data.
-### Print the first 6 observations and the last six observations to check the merged file.
+### 2. Merge beer data with the breweries data.  Print the first 6 observations and the last six observations to check the merged file.
+
+Beer and breweries data are merged using Brewery_ID as an index.
+
+Below are first and last six observations on the merged beer dataset.
 ```{r}
 mergedBeerData <- merge(x = beerDataOrig, y = breweryDataOrig,
                   by.x = "Brewery_id", by.y = "Brew_ID", all = TRUE)
@@ -82,7 +88,13 @@ tail(mergedBeerData)
 
 ### 3. Address the missing values in each column.
 
-Missing/empty values for each column as shown below.
+There are missing/empty values in three columns:
+
+- ABV: 62 values missing
+- IBU: 1,005 values missing, and
+- Sty: 5 values missing
+
+Totaling in 1,007 rows with missing value.
 ```{r}
 mergedBeerData$Style <- 
   lapply(mergedBeerData$Style,
@@ -90,27 +102,29 @@ mergedBeerData$Style <-
 
 
 sapply(mergedBeerData, function(x) sum(is.na(x)))
-```
 
-
-The total number of rows with missing/empty values as shows below.
-
-```{r}
 row.has.na <- apply(mergedBeerData, 1, function(x){any(is.na(x))})
 sum(row.has.na)
+```
 
+After filtering the missing/empty values out of the merged beer dataset, there are 1,405 rows of data in total that we work with.
+```{r}
 # Filtered Merged Data
 mergedBeerData.filtered <- mergedBeerData[!row.has.na,]
+
+nrow(mergedBeerData.filtered)
 ```
 
 ### 4.Compute the median alcohol content and international bitterness unit for each state. Plot a bar chart to compare.
+
+The median of Alcohol By Volume (ABV) and International Bitterness Units (IBU) for each state as shown below.
+
+From the bar charts, Maine has the highest number for both ABV (0.067 or 6.7%) and IBU (61 unit).
 ```{r message = FALSE, warning = FALSE}
 medianData <- aggregate(mergedBeerData.filtered[, 4:5], list(mergedBeerData.filtered$State), median)
 names(medianData)[names(medianData)=="Group.1"] <- "State"
 
-orderedMedian <- medianData %>% arrange(desc(ABV))
-
-g.mid <- ggplot(orderedMedian,aes(x=1,y=State)) +
+g.mid <- ggplot(medianData,aes(x=1, y = reorder(State,ABV))) +
   geom_text(aes(label=State)) +
   geom_segment(aes(x=0.94,xend=0.96,yend=State)) +
   geom_segment(aes(x=1.04,xend=1.062,yend=State)) +
@@ -126,7 +140,7 @@ g.mid <- ggplot(orderedMedian,aes(x=1,y=State)) +
         axis.ticks.x=element_line(color=NA),
         plot.margin = unit(c(1,-1,1,-1), "mm"))
 
-g1 <- ggplot(data = orderedMedian, aes(x = State, y = ABV, label = ABV)) +
+g1 <- ggplot(data = medianData, aes(x = reorder(State,ABV), y = ABV, label = ABV)) +
   geom_bar(stat = "identity", fill = "sandybrown") + 
   ggtitle("Alcohol By Volume (ABV)") +
   geom_text(aes(y = ABV+0.004), 
@@ -145,7 +159,7 @@ g1 <- ggplot(data = orderedMedian, aes(x = State, y = ABV, label = ABV)) +
   scale_y_reverse() +
   coord_flip(ylim = c(0.075,0.03))
 
-g2 <- ggplot(data = orderedMedian, aes(x = State, y = IBU, fill = IBU, label = IBU)) +
+g2 <- ggplot(data = medianData, aes(x = reorder(State,ABV), y = IBU, fill = IBU, label = IBU)) +
   xlab(NULL) +
   geom_bar(stat = "identity") + 
   ggtitle("International Bitterness Units (IBU)") +
@@ -171,8 +185,10 @@ gg2 <- ggplot_gtable(ggplot_build(g2))
 gg.mid <- ggplot_gtable(ggplot_build(g.mid))
 
 grid.arrange(gg1,gg.mid,gg2,ncol=3,widths=c(4/9,1/9,4/9))
+```
 
-
+Combined the two bar charts together with radial stacked bar chart.
+```{r}
 medianData %>%
   ggplot(aes(x = reorder(State,ABV))) +
   geom_col(aes(y = ABV*1000, fill = ABV*100)) +
@@ -196,7 +212,8 @@ medianData %>%
 ```
 
 ### 5. Which state has the maximum alcoholic (ABV) beer? Which state has the most bitter (IBU) beer?
-If we consider the median of ABV and IBU for each state,
+
+When consider the median value of ABV and IBU, Maine has the highest number for both ABV (0.067 or 6.7%) and IBU (61 unit).
 ```{r}
 # arrange by ABV in descending order, print state for first observation
 orderedABVmedian <- medianData %>% arrange(desc(ABV))
@@ -205,17 +222,23 @@ orderedABVmedian[1,]$State
 orderedIBUmedian <- medianData %>% arrange(desc(IBU))
 orderedIBUmedian[1,]$State
 ```
-If we consider the individual beer from each state ABV and IBU,
+But when consider individual beer, 
+
+- Kentucky has the highest number for ABV which is 0.125 or 12.5% from London Valling Beer and 
+- Oregon has the highest value for IBU which is 138 unit from Bitter Bitch Imperial IPA.
 ```{r}
 # arrange by ABV in descending order, print state for first observation
 orderedABV <- mergedBeerData.filtered %>% arrange(desc(ABV))
-orderedABV[1,]$State
+orderedABV[1,]
 
 orderedIBU <- mergedBeerData.filtered %>% arrange(desc(IBU))
-orderedIBU[1,]$State
+orderedIBU[1,]
 ```
 
 ### 6. Comment on the summary statistics and distribution of the ABV variable.
+
+- The range of ABV’s is from a minimum of 2.7% to a maximum of 12.5%
+- The average ABV is 6% with a standard deviation of 1.3%
 ```{r}
 mergedBeerData.filtered %>%
     summarize(mean=mean(ABV), 
@@ -228,7 +251,11 @@ mergedBeerData.filtered %>%
 ```
 
 ### 7. Is there an apparent relationship between the bitterness of the beer and its alcoholic content? Draw a scatter plot.  Make your best judgment of a relationship and EXPLAIN your answer.
-```{r}
+
+From the scatter plot with a regression line, there is a positive correlation between a beer’s ABV and its IBU.  There is strong evidence at the alpha = .05 level of significance to suggest that there is a linearly correlated relationship between a beer’s ABV and its IBU (p-value <.0001), with Pearson's Correlation Coefficient = 0.67 and r-square = 0.45.
+
+
+```{r message = FALSE, warning = FALSE}
 mergedBeerData.filtered %>%
   ggplot(aes(x = ABV,y = IBU)) + 
   geom_jitter() + 
@@ -240,19 +267,14 @@ mergedBeerData.filtered %>%
                              sep = "~`,`~"))) +
   stat_regline_equation(label.y = 145) +
   theme_bw()
+
+cor.test(mergedBeerData.filtered$ABV,mergedBeerData.filtered$IBU)
 ```
 
-### 8. Budweiser would also like to investigate the difference with respect to IBU and ABV between IPAs (India Pale Ales) and other types of Ale (any beer with “Ale” in its name other than IPA).  You decide to use KNN classification to investigate this relationship.  Provide statistical evidence one way or the other. You can of course assume your audience is comfortable with percentages … KNN is very easy to understand conceptually.
+### 8. Budweiser would also like to investigate the difference with respect to IBU and ABV between IPAs (India Pale Ales) and other types of Ale (any beer with “Ale” in its name other than IPA).  You decide to use KNN classification to investigate this relationship  Provide statistical evidence one way or the other. 
+*You can of course assume your audience is comfortable with percentages … KNN is very easy to understand conceptually.*
 
 ```{r message = FALSE, warning = FALSE}
-# Create a new column called 'Ale' that can be 'IPA', 'Ale', or 'Other'
-
-### TODO Working through the right regex to make sure IPA and India Pale Ale aren't 
-###    counted as both IPAs and Ales
-
-### TODO For this problem, we can filter out the 'Other' from the column since we only
-###    need to compare IPA and non-IPA ales
-
 mergedBeerData.filtered$AleStyle <- 
   ifelse(grepl("IPA", mergedBeerData.filtered$Style, fixed = TRUE),"IPA",
          ifelse(grepl("Ale", mergedBeerData.filtered$Style, fixed = TRUE),"Ale","Other"))
