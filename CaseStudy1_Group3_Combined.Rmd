@@ -1,8 +1,10 @@
 ---
 title: "Case Study 1 by Group 3"
 author: "Group 3 - Chris Roche, Puri Rudick, and Ryan Kinney"
-output: html_document
-editor_options: 
+output:
+  html_document: default
+  pdf_document: default
+editor_options:
   chunk_output_type: console
 ---
 
@@ -14,6 +16,15 @@ library(usmap)
 library(ggnewscale)
 library(caret)
 library(class)
+
+install.packages("Rmisc")
+library(Rmisc)
+
+install.packages("gridExtra")
+library(gridExtra)
+
+install.packages("ggpubr")
+library(ggpubr)
 ```
 
 ### Read in the data from csv files
@@ -104,13 +115,78 @@ mergedBeerData.filtered <- mergedBeerData[!row.has.na,]
 medianData <- aggregate(mergedBeerData.filtered[, 4:5], list(mergedBeerData.filtered$State), median)
 names(medianData)[names(medianData)=="Group.1"] <- "State"
 
+orderedMedian <- medianData %>% arrange(desc(ABV))
+
+g.mid <- ggplot(orderedMedian,aes(x=1,y=State)) +
+  geom_text(aes(label=State)) +
+  geom_segment(aes(x=0.94,xend=0.96,yend=State)) +
+  geom_segment(aes(x=1.04,xend=1.062,yend=State)) +
+  ggtitle("") +
+  ylab(NULL) +
+  scale_x_continuous(expand=c(0,0),limits=c(0.94,1.062)) +
+  theme(axis.title=element_blank(),
+        panel.grid=element_blank(),
+        axis.text.y=element_blank(),
+        axis.ticks.y=element_blank(),
+        panel.background=element_blank(),
+        axis.text.x=element_text(color=NA),
+        axis.ticks.x=element_line(color=NA),
+        plot.margin = unit(c(1,-1,1,-1), "mm"))
+
+g1 <- ggplot(data = orderedMedian, aes(x = State, y = ABV, label = ABV)) +
+  geom_bar(stat = "identity", fill = "sandybrown") + 
+  ggtitle("Alcohol By Volume (ABV)") +
+  geom_text(aes(y = ABV+0.004), 
+            size = 3,
+            vjust = .5) +
+  theme(panel.background = element_blank(),
+        axis.title.x = element_blank(), 
+        axis.text.x=element_text(color=NA),
+        axis.ticks.x=element_line(color=NA),
+        axis.title.y = element_blank(), 
+        axis.text.y = element_blank(), 
+        axis.ticks.y = element_blank(), 
+        legend.position = "none",
+        plot.title = element_text(hjust = 1),
+        plot.margin = unit(c(1,0,1,0), "mm")) +
+  scale_y_reverse() +
+  coord_flip(ylim = c(0.075,0.03))
+
+g2 <- ggplot(data = orderedMedian, aes(x = State, y = IBU, fill = IBU, label = IBU)) +
+  xlab(NULL) +
+  geom_bar(stat = "identity") + 
+  ggtitle("International Bitterness Units (IBU)") +
+  geom_text(aes(y = IBU+3),
+            size = 3,
+            vjust = .5) +
+  scale_fill_gradient2(low = "grey25", 
+                       high = "black",
+                       name = "IBU") +
+  theme(panel.background = element_blank(),
+        axis.title.x = element_blank(), 
+        axis.text.x=element_text(color=NA),
+        axis.ticks.x=element_line(color=NA),
+        axis.title.y = element_blank(),
+        axis.text.y = element_blank(), 
+        axis.ticks.y = element_blank(),
+        legend.position = "none",
+        plot.margin = unit(c(1,5,1,0), "mm")) +
+  coord_flip(ylim = c(5,65))
+
+gg1 <- ggplot_gtable(ggplot_build(g1))
+gg2 <- ggplot_gtable(ggplot_build(g2))
+gg.mid <- ggplot_gtable(ggplot_build(g.mid))
+
+grid.arrange(gg1,gg.mid,gg2,ncol=3,widths=c(4/9,1/9,4/9))
+
+
 medianData %>%
   ggplot(aes(x = reorder(State,ABV))) +
-  geom_col(aes(y = ABV*1000, fill = ABV)) +
+  geom_col(aes(y = ABV*1000, fill = ABV*100)) +
   scale_fill_gradient2(low = "white", 
                        high = "orange",
                        name = "ABV") +
-  geom_text(aes(y = ABV*1000-8, label = round(ABV, 3)), color = "chocolate4", size = 3) +
+  geom_text(aes(y = ABV*1000-8, label = round(ABV*100, 3)), color = "chocolate4", size = 3) +
   new_scale_fill() +
   geom_col(aes(y = -IBU, fill = IBU)) +
   scale_fill_gradient2(low = "grey25", 
@@ -160,7 +236,17 @@ mergedBeerData.filtered %>%
 
 ### 7. Is there an apparent relationship between the bitterness of the beer and its alcoholic content? Draw a scatter plot.  Make your best judgment of a relationship and EXPLAIN your answer.
 ```{r}
-mergedBeerData.filtered %>% ggplot(aes(x = ABV,y = IBU)) + geom_jitter() + ggtitle("ABV v. IBU") + geom_smooth(method="lm", se=F)
+mergedBeerData.filtered %>%
+  ggplot(aes(x = ABV,y = IBU)) + 
+  geom_jitter() + 
+  ggtitle("ABV vs. IBU") + 
+  geom_smooth(method="lm", se=F) + 
+  stat_cor(label.y = 150, 
+           aes(label = paste(..rr.label.., 
+                             ..p.label.., 
+                             sep = "~`,`~"))) +
+  stat_regline_equation(label.y = 145) +
+  theme_bw()
 ```
 
 ### 8. Budweiser would also like to investigate the difference with respect to IBU and ABV between IPAs (India Pale Ales) and other types of Ale (any beer with “Ale” in its name other than IPA).  You decide to use KNN classification to investigate this relationship.  Provide statistical evidence one way or the other. You can of course assume your audience is comfortable with percentages … KNN is very easy to understand conceptually.
@@ -201,4 +287,23 @@ table(beerTest$AleByName, classifications)
 CM = confusionMatrix(table(beerTest$AleByName, classifications))
 CM
 
+```
+
+### 9. Knock their socks off!  Find one other useful inference from the data that you feel Budweiser may be able to find value in.  You must convince them why it is important and back up your conviction with appropriate statistical evidence. 
+```{r}
+set.seed(4)
+splitPerc = .7
+
+trainIndices.allType = sample(1:dim(mergedBeerData.filtered)[1], round(splitPerc * dim(mergedBeerData.filtered)[1]))
+beerTrain.allType = mergedBeerData.filtered[trainIndices.allType,]
+beerTest.allType = mergedBeerData.filtered[-trainIndices.allType,]
+
+# run knn
+classifications = knn(beerTrain.allType[,4:5], beerTest.allType[,4:5], beerTrain.allType$AleByName, k = 5, prob = TRUE)
+summary(classifications)
+
+# Confusion Matrix
+table(beerTest.allType$AleByName, classifications)
+CM.allType = confusionMatrix(table(beerTest.allType$AleByName, classifications))
+CM.allType
 ```
