@@ -28,7 +28,7 @@ breweryDataOrig = read.csv("Breweries.csv",header = TRUE)
 ```
 
 ### 1. How many breweries are present in each state?
-
+DID I PUSH??
 The number of breweries in each state as shown below.
 The darker color represents the higher number of breweries with number labeled.
 
