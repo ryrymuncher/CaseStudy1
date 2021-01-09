@@ -16,14 +16,8 @@ library(usmap)
 library(ggnewscale)
 library(caret)
 library(class)
-
-install.packages("Rmisc")
 library(Rmisc)
-
-install.packages("gridExtra")
 library(gridExtra)
-
-install.packages("ggpubr")
 library(ggpubr)
 ```
 
@@ -37,7 +31,6 @@ breweryDataOrig = read.csv("Breweries.csv",header = TRUE)
 
 The number of breweries in each state as shown below.  The darker color represents the higher number of breweries with number labeled.
 ```{r}
-#table(breweryDataOrig$State)
 
 breweryDataOrig = as.data.frame(breweryDataOrig)
 Breweries.in.each.state = breweryDataOrig %>% count(State)
