@@ -2,7 +2,7 @@
 
 ## Case Study One
 ### Beers and Breweries of the United States
-This repository contains the arifacts created from a study of beers and breweries in the United States. The study was conducted using over 2000 beers from more than 500 breweries. Some of the focuses of this exploratory data analysis were placed on International Bitterness Units (IBU), Alcohol by volume (ABV), and regional differences with respect to states.
+This repository contains the artifacts created from a study of beers and breweries in the United States. The study was conducted using over 2000 beers from more than 500 breweries. Some of the focuses of this exploratory data analysis were placed on International Bitterness Units (IBU), Alcohol by volume (ABV), and regional differences with respect to states.
 
 ### Team 3:
 - Chris Roche  
